@@ -7,17 +7,33 @@
 - **不做 ASR**：CC 字幕优先，无 CC 用 AI 字幕，都没有就停
 - **AI 字幕无标点**：`ai-zh` 源是一整串汉字，每篇必须人工断句 + 听写纠错（固定工作量）
 
+## 一图流规格（2026-10-02 三次返工后定稿，务必先读这段）
+- **横向扁宽**约 2000×900~1200，**绝对不要竖版长图**（竖版=长条目录，用户否过）
+- 结构：顶部标题+副标题（**不另造「总」色块**）→ 左侧阶段标签含时间码→ 右侧动作盒横排+横向箭头 → 阶段间竖向箭头递进 → 末段可通栏
+- 节点 = **阶段 + 动作盒**；盒内 = 主文字（AI 提炼的动作短句，**不是章节标题逐字**）+ 副文字
+- **覆盖校验**：每个动作盒的 `chapters[]` 并集必须 == `range(len(chapters))`，漏章/重复归入拒绝出图；同一章多动作合并进一个盒内多行
+- 自适应：盒宽按可用宽度、标签宽按像素自适应；`--preview` 按 1000px 自检后必须 Read
+- 软跳转（纯图片），不做可点目录/锚点（图片无法分区点击）
+
+## 三条铁律（都是踩坑换来的）
+1. **画图前先扫一眼 `data/000N.…/figures/` 有没有可复用的版式。** 0001 返工三次，根因是重画时忽略了项目里已有的 `视频脉络` 图
+2. **不要发明用户没要求的概念。** 我编过「论证板块」这层语义，被直接否掉
+3. **不要把结构选择题丢给用户。** 用户原话「每个视频结构都不一样啊，很难懂吗」——分几段、每段哪几个动作是 AI 该自己判断的事
+
 ## 关键文件地图
-- 规格与红线：`docs/设计文档.md`
-- 进度看板：`docs/执行计划.md`
+- 规格与红线：`docs/设计文档.md`（第 6 节= 一图流完整规格，第 8 节红线 9）
+- 进度看板：`docs/执行计划.md`（顶部状态看板，每session 开场先读）
 - 新手入口：`《新手刚拿到此项目最先阅读》.md`
-- 工作流 Skill：`~/.workbuddy/skills/bili-video-note/`（用户级）+ `.workbuddy/skills/bili-video-note/`（仓库级，随 clone 走）
+- 工作流 Skill：`~/.workbuddy/skills/bili-video-note/`（用户级，v1.3.0）+ `.workbuddy/skills/bili-video-note/`（仓库级，随 clone 走）。**改完必须 diff 验证两份一致**
 
 ## 已踩的坑
 - `lark-cli` 在 Windows 下是 `.cmd`，Python subprocess 会 WinError 2 → 改走 `node.exe + run.js`
 - `media-insert` 只能追加到文档末尾 → 用 `docs +create` 的 DocxXML `<img path="@./x.jpg">` 内联上传
 - 下载优先 `avc1` 避开 AV1，否则抽帧极慢
 - 抽帧 `-ss` 必须放 `-i` 前面
+- `make_content.py` 会**重建** `figures` 抹掉已登记的 overview → 固定顺序：补 phrase → make_content.py → 一图流脚本 → `--full`
+- `meta.oneliner` 不是 `make_content.py` 产出的字段（后手写进 content.json），脚本读取要带 fallback
+- docx 图注无条件加 `📍` 前缀，一图流不该带（待S29 修）
 
 ## 仓库
 - GitHub 公开仓库：`git@github.com:1040002437/006.-AI-B-.git`
