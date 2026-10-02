@@ -1,0 +1,8 @@
+# 让 AI 学会看 B站视频 —— 依赖清单
+# 全部为 pip 包，不装任何系统软件（不需要单独装 ffmpeg、不需要显卡）
+# 换机用法：pip install -r requirements.txt
+
+yt-dlp            # 下载 B站视频
+imageio-ffmpeg    # 自带预编译 ffmpeg 二进制：合并音视频轨 + 精确抽帧
+requests          # 调 B站接口抓字幕
+python-docx       # 渲染本地 docx 副本（真标题样式 + 图片内嵌）
