@@ -1,0 +1,90 @@
+# 内容阶段怎么做（第 ② 步，没有命令可替代）
+
+这一步占整个流程的时间最多，也决定成品质量。产物是三个文本文件，喂给 `make_content.py` 组装成 `content.json`。
+
+## 拿到素材后先通读
+
+```bash
+python - << 'EOF'
+import json, pathlib
+b = json.loads(pathlib.Path("<视频文件夹>/subtitle.json").read_text(encoding="utf-8"))["body"]
+def mmss(s): return f"{int(s)//60:02d}:{int(s)%60:02d}"
+out, buf, t0 = [], "", b[0]["from"]
+for x in b:
+    buf += x["content"]
+    if len(buf) >= 38 or x is b[-1]:
+        out.append(f"[{mmss(t0)}] {buf}"); buf = ""; t0 = x["to"]
+pathlib.Path(".tmp/transcript_raw.txt").write_text("\n".join(out), encoding="utf-8")
+EOF
+```
+
+**AI 字幕（`ai-zh`）完全没有标点**，一整串汉字。通读时同步做两件事：**断句**和**听写纠错**（实测踩过的：飞书≠非洲、豆包≠豆吧、Seedance≠CDance、AGENTS.md≠AMD）。这一步省不掉。
+
+## 产出三个文件（都放 `.tmp/`）
+
+### 1. `full_blocks.txt` —— 全量文字版
+
+每行一块，**制表符**分隔，冒号前是该块起点：
+
+```
+00:00<TAB>开场，今天要讲的是…
+01:02<TAB>先说知识库这部分…
+```
+
+- 目标 **60 秒左右一块**，但**跟着语义走**，不要机械切：一句话讲到一半宁可让这块长一点
+- 参考量：35 分钟 ≈ 40–45 块
+- 每块用完整句子写，保留原意，不要压缩成摘要——这是"全量"版
+
+### 2. `chapters.json` —— 总结版章节
+
+```json
+[
+  {"start": 0,     "end": 104,  "title": "为什么要用知识库",
+   "summary": "……", "bullets": ["要点一", "要点二"]},
+  {"start": 104,   "end": 312,  "title": "怎么搭 Skills",
+   "summary": "……", "bullets": []}
+]
+```
+
+- `start` / `end` 单位是**秒**，必须首尾相接覆盖全片
+- 参考量：35 分钟 ≈ 10–14 章
+- `summary` 讲这章到底讲了什么、结论是什么；`bullets` 留操作步骤或要点，**没有就给空数组**，别硬凑
+
+### 3. `images.json` —— 截图点
+
+```json
+[
+  {"t": 30,  "caption": "本地知识库文件夹结构"},
+  {"t": 385, "caption": "8 个模块的可视化面板"}
+]
+```
+
+**选图判据（红线 5）：只截"文字说不出来的信息"**——界面长什么样、代码怎么写的、图表数据多少、成品 PPT 长什么样。**纯口播对着镜头讲的段落不配图。** 所以时间点是疏密不均的，不是每隔几分钟一张。
+
+参考密度：35 分钟 ≈ 6–12 张。
+
+caption 写画面里那个**信息点**（"豆包的 Skills 创建界面"），不要写"视频截图"。
+
+## 自绘图（可选，宁缺毋滥）
+
+只有当你判断**正文顺序讲不清楚结构**（比如全片是穿插演示，读者看完抓不到脉络）时才画，每篇 0–1 张。
+
+- `scripts/draw_figure_0001.py` 是可抄的模板：PIL + `C:/Windows/Fonts/msyh.ttc`（中文），输出 PNG 到视频文件夹的 `figures/`
+- 画完**必须生成缩略图给自己看一眼**（常见问题是文字被框挤出去）
+
+## 组装
+
+```bash
+"$PY" "$REPO/scripts/make_content.py" --dir "data/000N.《标题》" \
+    --blocks .tmp/full_blocks.txt --chapters .tmp/chapters.json --images .tmp/images.json \
+    --figure "figures/xxx.png|图说明"
+```
+
+脚本会按时间区间**自动把截图分配给章节和段落块**——同一张图文件在总结版和全量版都出现，这是刻意的：两个版本都该能看见画面。输出末尾若提示"未落入任何章节"，说明那张图的时间点落在了 chapters 覆盖范围外，检查一下起止秒。
+
+然后到第 ③ 步 `--full`：抽帧 → docx → 云文档。
+
+## 交付前自查
+
+- 抽完帧**逐张用缩略图核对**，确认确实拍到了想要的信息；时刻偏了就改 `images.json` 重抽，别将就
+- 收尾：本地 docx 存在、云文档生成成功、链接已写回 `视频信息.md`
