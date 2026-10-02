@@ -37,3 +37,4 @@ frames/
 .secrets/
 cookies.txt
 *.cookie
+.tmp/
