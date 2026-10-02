@@ -116,9 +116,16 @@ def main() -> None:
     info.runs[0].font.color.rgb = GRAY
     set_cjk(info.runs[0].font)
 
+    # ---------- 一图流（F14） ----------
+    overview = next((f for f in c.get("figures", []) if f.get("role") == "overview"), None)
+    other_figures = [f for f in c.get("figures", []) if f.get("role") != "overview"]
+    if overview:
+        doc.add_heading("一图流", level=1)
+        picture(doc, video_dir, overview["file"], overview["caption"])
+
     # ---------- 视频总结版本 ----------
     doc.add_heading(c["summary"]["heading"], level=1)
-    for f in c["figures"]:
+    for f in other_figures:
         picture(doc, video_dir, f["file"], f["caption"])
 
     for i, ch in enumerate(c["summary"]["chapters"], 1):

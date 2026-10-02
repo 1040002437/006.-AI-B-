@@ -48,9 +48,16 @@ def build_xml(c: dict) -> str:
     x.append(f"<p><b>UP主：</b>{e(meta['up'])}　<b>时长：</b>{e(dur)}　"
              f"<b>BV号：</b>{e(meta['bvid'])}　<b>字幕来源：</b>{e(meta['subtitle_source'])}</p>")
 
+    # ---- 一图流（F14） ----
+    overview = next((f for f in c.get("figures", []) if f.get("role") == "overview"), None)
+    other_figures = [f for f in c.get("figures", []) if f.get("role") != "overview"]
+    if overview:
+        x.append("<h1>一图流</h1>")
+        x.append(img_tag(overview["file"], f"一图流　{overview['caption']}"))
+
     # ---- 总结版 ----
     x.append(f"<h1>{e(c['summary']['heading'])}</h1>")
-    for f in c["figures"]:
+    for f in other_figures:
         x.append(img_tag(f["file"], f"自绘图　{f['caption']}"))
     for i, ch in enumerate(c["summary"]["chapters"], 1):
         x.append(f"<h2>{i:02d} {e(ch['title'])}（{e(ch['time_range'])}）</h2>")

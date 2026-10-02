@@ -7,14 +7,15 @@
     python scripts/run_all.py --dir "data/0001.《…》" --full   # 对已有素材续跑渲染
 
 阶段:
-    [素材] 解析建目录 → 下载 720P → 抓字幕          （确定性，脚本完成）
-    [内容] 分段 / 摘要 / 选截图点 → content.json     （需要 WorkBuddy 在对话中完成）
-    [渲染] 抽帧 → 本地 docx → 飞书云文档 → 链接写回   （确定性，脚本完成）
+    [素材] 解析建目录 → 下载 720P → 抓字幕              （确定性，脚本完成）
+    [内容] 分段 / 摘要 / 选截图点 / 一图流 → content.json   （需要 WorkBuddy 在对话中完成）
+    [渲染] 抽帧 → 本地 docx → 飞书云文档 → 链接写回       （确定性，脚本完成）
 
 没有 content.json 时会停在素材阶段——内容生成由 WorkBuddy 读字幕完成，
 这是有意设计（总结质量靠理解力，不靠模板）。
 """
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -71,12 +72,21 @@ def main() -> None:
     if not a.full:
         print(f"\n素材阶段结束：{out_dir}")
         if not content.exists():
-            print("下一步：由 WorkBuddy 读字幕生成分段/摘要/选图（.tmp/full_blocks.txt、"
-                  "chapters.json、images.json），再执行 make_content.py 后用 --full 续跑。")
+            print("下一步：由 WorkBuddy 读字幕生成分段/摘要/选图/一图流（.tmp/full_blocks.txt、"
+                  "chapters.json、images.json）→ make_content.py → draw_onepager.py，"
+                  "然后用 --full 续跑。")
         return
 
     if not content.exists():
-        sys.exit(f"缺少 {content}。内容阶段（分段/摘要/选图）需先在对话中完成。")
+        sys.exit(f"缺少 {content}。内容阶段（分段/摘要/选图/一图流）需先在对话中完成。")
+
+    c = json.loads(content.read_text(encoding="utf-8"))
+    has_overview = any(f.get("role") == "overview" for f in c.get("figures", []))
+    one_pager = out_dir / "figures" / "一图流.png"
+    if not has_overview or not one_pager.exists():
+        run([PY, str(SCRIPTS / "draw_onepager.py"), "--dir", str(out_dir)])
+        # draw_onepager.py 会写回 content.json，重新读一次
+        c = json.loads(content.read_text(encoding="utf-8"))
 
     run([PY, str(SCRIPTS / "extract_frames.py"), "--dir", str(out_dir)])
     run([PY, str(SCRIPTS / "render_docx.py"), "--dir", str(out_dir)])

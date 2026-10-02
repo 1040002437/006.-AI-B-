@@ -3,7 +3,7 @@ name: bili-video-note
 description: "把一个 B站视频变成一篇带截图和时间码的飞书云文档（同时留一份本地 docx）。自动下载 720P、抓取 B站 CC/AI 字幕、按语义分段、抽关键帧；由 WorkBuddy 在对话中完成「分段 / 摘要 / 选图」这段需要理解力的部分。产出《视频总结版本》+《视频全量文字版》两个一级标题，每个段落块带 [hh:mm:ss] 可跳回原视频。Use when: 用户给一个 bilibili.com/video/BV… 或 b23.tv 链接，并要求『阅读并生成文档』『看这个视频并出文档』『你去看这个B站视频并生成笔记』『总结这个B站视频』『转成飞书文档/笔记』『提取每分每秒的内容』；或提到『视频转文档』『B站笔记』『让 AI 看视频』。用户只要给链接 + 这类意图，就自动触发并执行全流程，不要反过来问用户要不要做。"
 description_zh: "B站视频 → 飞书云文档：带时间码的完整文字版 + 分章节总结版 + 关键画面截图"
 description_en: "Turn a Bilibili video into a Feishu cloud doc with screenshots and timestamps"
-version: "1.2.0"
+version: "1.2.1"
 display_name: "B站视频转飞书文档"
 visibility: "private"
 agent_created: true
@@ -57,14 +57,15 @@ PY="$REPO/.venv/Scripts/python.exe"
 # ② 内容（这一步是你做的，没有命令可替代）：
 #    读 subtitle.json → 写 .tmp/full_blocks.txt / chapters.json / images.json
 #    （做法见 references/content-guide.md；AI 字幕无标点，必须断句+听写纠错）
-#    必做：生成 一图流.png（开篇脉络图，节点=chapters[]，1:1 对齐，见设计文档第 6 节）
-#          —— scripts/draw_onepager.py 规划中(S23)；落地前按设计文档 §6 用 PIL 现画
-#    可选：再画 F12 文中补充图（draw_figure_0001.py 模板）→ figures/
-#    然后把三份文件组装成中间结构 content.json：
+#    组装成中间结构 content.json（ figures 里可顺带传入 F12 文中补充图）：
 "$PY" "$REPO/scripts/make_content.py" --dir "data/000N.《标题》" \
     [--figure "figures/xxx.png|图说明文字"]
+#    必做：生成 一图流.png 并写回 content.json（role=overview）：
+"$PY" "$REPO/scripts/draw_onepager.py" --dir "data/000N.《标题》"
+#    可选：再画 F12 文中补充图（draw_figure_0001.py 模板），需再跑 make_content.py 把它追加进 figures
 
 # ③ 渲染（确定性）：抽帧 → 本地 docx → 飞书云文档 → 链接写回 视频信息.md
+#    run_all.py --full 会在渲染前自动补 draw_onepager.py（如果缺失），但建议②里显式跑。
 "$PY" "$REPO/scripts/run_all.py" --dir "data/000N.《标题》" --full
 ```
 

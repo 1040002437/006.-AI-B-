@@ -70,9 +70,9 @@ caption 写画面里那个**信息点**（"豆包的 Skills 创建界面"），�
 在《视频总结版本》**之前**单开一级标题「一图流」，节内只放一张「视频脉络图」，不配说明文字（文字都画在图里）。这是导航索引图，让人先看清全片结构、再按图跳正文。
 
 - 图上节点 = `chapters[]` 的每个章节：节点标题直接用 `chapters[i].title`、时间码用 `time_range`，**逐字 1:1 对齐**（红线 9 的机制保障，别手画节点名）
-- 节点数 5 / 12 两种规模都要能自动排版（≤8 平铺、>8 分组）；沿用 `draw_figure_0001.py` 的 PIL + `msyh.ttc` 路线
-- 脚本 `scripts/draw_onepager.py` 规划中（S23，入参 content.json 参数化直绘）；落地前先用 PIL 按上面规则现画一张 `figures/一图流.png`
-- 组装时把它作为**第一个** `--figure` 传入 `make_content.py`（role=overview）
+- 节点数 5 / 12 两种规模都要能自动排版（纵向时间轴，自动算高）；沿用 `draw_figure_0001.py` 的 PIL + `msyh.ttc` 路线
+- **脚本已实现**：`scripts/draw_onepager.py`（S23 DONE），入参 `content.json`，直读 `chapters[]` 自动出 `figures/一图流.png`，并自动把 `{file:"figures/一图流.png", role:"overview"}` 写回 `content.json` 的 `figures[0]`
+- 调用顺序：先 `make_content.py` 组装 content.json，再 `draw_onepager.py` 生成一图流并写回 content.json，最后 `--full` 渲染。`run_all.py --full` 会在渲染前自动补跑 `draw_onepager.py`（如果缺失）
 
 ## 文中补充图 / 自绘图（F12，可选 0–1 张）
 
