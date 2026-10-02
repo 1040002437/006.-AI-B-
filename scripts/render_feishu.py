@@ -118,6 +118,19 @@ def write_back(info_md: Path, url: str) -> None:
     info_md.write_text(txt, encoding="utf-8")
 
 
+def extract_doc_token(info_md: Path) -> str | None:
+    """从 视频信息.md 解析已生成的飞书文档 token（用于后续整篇覆盖更新）。
+
+    首次生成（create）后 视频信息.md 会写回 `feishu.cn/docx/<token>` 链接，
+    之后运行就能识别到，改走 +update --command overwrite，避免重复建文档。
+    """
+    if not info_md.exists():
+        return None
+    txt = info_md.read_text(encoding="utf-8")
+    m = re.search(r"feishu\.cn/docx/([A-Za-z0-9]+)", txt)
+    return m.group(1) if m else None
+
+
 video_dir = None
 
 
@@ -125,7 +138,9 @@ def main() -> None:
     global video_dir
     ap = argparse.ArgumentParser(description="content.json → 飞书云文档")
     ap.add_argument("--dir", required=True, help="视频文件夹")
-    ap.add_argument("--dry-run", action="store_true", help="只生成 XML 不创建")
+    ap.add_argument("--dry-run", action="store_true", help="只生成 XML 并打印将执行的命令，不调用 API")
+    ap.add_argument("--force-create", action="store_true",
+                   help="忽略已有文档，强制新建一篇（用于换文件夹/测试）")
     a = ap.parse_args()
     video_dir = (ROOT / a.dir).resolve() if not Path(a.dir).is_absolute() else Path(a.dir)
     c = json.loads((video_dir / "content.json").read_text(encoding="utf-8"))
@@ -134,23 +149,45 @@ def main() -> None:
     xml_path = video_dir / "feishu_doc.xml"
     xml_path.write_text(xml, encoding="utf-8")
     print(f"XML 就绪：{xml_path}（{len(xml) // 1024} KB）")
+
+    info_md = video_dir / "视频信息.md"
+    folder = (ROOT / ".secrets" / "feishu_folder.txt").read_text().strip()
+    token = None if a.force_create else extract_doc_token(info_md)
+
     if a.dry_run:
+        if token:
+            print(f"[dry-run] 将整篇覆盖更新已有文档：docs +update --doc {token} "
+                  f"--command overwrite --content @{xml_path.name}")
+        else:
+            print(f"[dry-run] 将新建文档：docs +create --parent-token {folder} "
+                  f"--content @{xml_path.name}")
         return
 
-    folder = (ROOT / ".secrets" / "feishu_folder.txt").read_text().strip()
-    print("创建飞书云文档（含 13 张图上传，约需 1-2 分钟）…")
-    res = lark(["docs", "+create", "--parent-token", folder,
-                "--content", f"@{xml_path.name}"], cwd=video_dir)
+    # ---- 已有文档 → 整篇覆盖更新（飞书自带版本历史，可 +history-revert 回滚）----
+    if token:
+        print(f"检测到已有飞书文档（doc_token={token}），执行整篇覆盖更新…")
+        print(f"（飞书自带版本历史，如需回滚：lark-cli docs +history-revert --doc {token}）")
+        res = lark(["docs", "+update", "--doc", token,
+                    "--command", "overwrite", "--content", f"@{xml_path.name}"], cwd=video_dir)
+        wanted = {"url": ""}
+        find_keys(res, wanted)
+        url = wanted["url"] or f"https://my.feishu.cn/docx/{token}"
+        print(f"已覆盖更新：{url}")
+    # ---- 首次生成 → 新建文档 ----
+    else:
+        print("首次生成，创建飞书云文档（含图片上传，约需 1-2 分钟）…")
+        res = lark(["docs", "+create", "--parent-token", folder,
+                    "--content", f"@{xml_path.name}"], cwd=video_dir)
+        wanted = {"document_id": "", "url": ""}
+        find_keys(res, wanted)
+        if not wanted["document_id"] or not wanted["url"]:
+            print(json.dumps(res, ensure_ascii=False)[:1500])
+            sys.exit("未能从返回中解析 document_id / url")
+        url = wanted["url"]
+        print(f"云文档：{url}")
+        print(f"doc_id：{wanted['document_id']}")
 
-    wanted = {"document_id": "", "url": ""}
-    find_keys(res, wanted)
-    if not wanted["document_id"] or not wanted["url"]:
-        print(json.dumps(res, ensure_ascii=False)[:1500])
-        sys.exit("未能从返回中解析 document_id / url")
-    print(f"云文档：{wanted['url']}")
-    print(f"doc_id：{wanted['document_id']}")
-
-    write_back(video_dir / "视频信息.md", wanted["url"])
+    write_back(info_md, url)
     print("已写回 视频信息.md")
 
 
