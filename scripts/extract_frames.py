@@ -16,8 +16,22 @@ import sys
 from pathlib import Path
 
 import imageio_ffmpeg
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def normalize(path: Path) -> None:
+    """用 PIL 重存一遍，输出标准 JPEG。
+
+    ffmpeg 抽出的 JPEG 文件头带的是 `avc1` 私有 APP1 标记（ff d8 ff e0 ... avc1）
+    而非标准 Exif，PIL 能读但 python-docx 的嗅探器认不出，add_picture 会抛
+    UnrecognizedImageError。重存一次即可剥掉该标记。
+    """
+    tmp = path.with_suffix(".tmp.jpg")
+    with Image.open(path) as im:
+        im.convert("RGB").save(tmp, "JPEG", quality=92)
+    tmp.replace(path)
 
 
 def main() -> None:
@@ -48,6 +62,7 @@ def main() -> None:
         if r.returncode != 0 or not out.exists():
             print((r.stderr or "")[-800:], file=sys.stderr)
             sys.exit(f"抽帧失败：{im['time']}")
+        normalize(out)
         print(f"  {im['time']} → {im['file']}（{out.stat().st_size//1024} KB）")
 
     print(f"抽帧完成：{frames_dir}")
