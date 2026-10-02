@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""S23：绘制「一图流」开篇脉络图（F14，每篇必做）。
+"""【参考实现 · 不再自动调用】通用一图流绘图器。
 
-入参：视频文件夹里的 content.json（由 make_content.py / 对话阶段产出）。
-输出：该文件夹 figures/一图流.png —— 一张视频脉络导航图。
+⚠ **F14 规范（2026-10-02 三次修订）要求「每篇单独设计结构 + 专属脚本」**，
+   `run_all.py` 缺图时**不再自动调用本脚本**，会直接报错中止。
+   本脚本仅作抄写起点与紧急手跑用，**其产出不保证满足红线 9**
+   （动作盒覆盖不重不漏、横向扁宽版式、自适应不裁切）。
+
+   正确做法：复制 `scripts/draw_onepager_0001.py`，按当前视频内容重新设计
+   阶段划分与动作盒，另写专属脚本。
 
 设计依据：docs/设计文档.md 第 6 节「一图流」。
 特性：
-  - 优先按 summary.phases 绘制「阶段纵向堆叠 + 阶段内横向流转」的层级图
-    phases 结构：[
+  - 优先按 summary.onepager.stages 绘制「阶段纵向堆叠 + 阶段内横向流转」的层级图
+    phases（旧字段，已删除）结构：[
       {
         "name": "搭库",
         "time_range": "0:00 - 8:37",
@@ -18,7 +23,7 @@
         ]
       }
     ]
-  - 无 phases 时回退到旧的纵向时间轴（保持兼容）
+  - 无 stages 时回退到旧的纵向时间轴（保持兼容）
   - 节点文字自动折行、自动算卡片宽度；超宽时自动换行到下一行
   - 节点间用箭头连接，阶段间也用箭头连接；箭头绘制在卡片底层，不遮挡文字
   - 画完自动把 {file, role:"overview"} 写回 content.json 的 figures[0]
@@ -147,7 +152,7 @@ def build_rows(nodes: list[dict], content_w: int, d: ImageDraw.Draw,
 
     measured = []
     for n in nodes:
-        label = n.get("label", "").strip()
+        label = n.get("main", n.get("label", "")).strip()
         sub = n.get("sub", "").strip()
         label_lines = wrap_text(label, 22)
         if len(label_lines) > 2:
@@ -180,7 +185,7 @@ def build_rows(nodes: list[dict], content_w: int, d: ImageDraw.Draw,
 
 def draw_hierarchical(content: dict, out_path: Path) -> None:
     meta = content.get("meta", {})
-    phases = content.get("summary", {}).get("phases") or []
+    phases = content.get("summary", {}).get("onepager", {}).get("stages") or []
     if not phases:
         raise ValueError("无 phases，不应走层级绘制")
 
@@ -304,7 +309,7 @@ def draw_hierarchical(content: dict, out_path: Path) -> None:
         ph_h = layout["height"]
         color = layout["color"]
         name = ph.get("name", f"阶段")
-        time_range = ph.get("time_range", "")
+        time_range = ph.get("span", ph.get("time_range", ""))
 
         # 阶段标签：左侧圆角竖块
         label_x = MARGIN_X
@@ -379,7 +384,6 @@ def draw_flat(content: dict, out_path: Path) -> None:
     d.text((W / 2, 46), f"一图流 · 《{title}》",
            font=font(38, True), fill=INK, anchor="mm")
     sub = f"共 {len(chapters)} 章" + (f" · 时长 {mmss(duration)}" if duration else "")
-    sub += " · 节点与总结版章节 1:1 对应"
     d.text((W / 2, 94), sub, font=font(22), fill="#8A9098", anchor="mm")
     d.line([MARGIN_X, HEAD - 18, W - MARGIN_X, HEAD - 18], fill="#E3E6EA", width=2)
 
@@ -442,7 +446,7 @@ def _get_phrase(ch: dict) -> str:
 # ============================================================
 
 def draw(content: dict, out_path: Path) -> None:
-    phases = content.get("summary", {}).get("phases")
+    phases = content.get("summary", {}).get("onepager", {}).get("stages")
     if phases:
         draw_hierarchical(content, out_path)
     else:

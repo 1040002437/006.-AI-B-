@@ -68,7 +68,13 @@ def caption(doc: Document, text: str, center: bool = True) -> None:
     set_cjk(r.font)
 
 
-def picture(doc: Document, video_dir: Path, rel: str, cap: str) -> None:
+def picture(doc: Document, video_dir: Path, rel: str, cap: str,
+            stamp: bool = True) -> None:
+    """插入内嵌图片 + 图注。
+
+    stamp=True 给图注加「📍 」前缀（截图专用）；一图流不是某时刻的截图，
+    传 stamp=False 让图注原样输出。
+    """
     path = video_dir / rel
     if not path.exists():
         caption(doc, f"（缺图：{rel}）")
@@ -76,7 +82,7 @@ def picture(doc: Document, video_dir: Path, rel: str, cap: str) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.add_run().add_picture(str(path), width=Cm(15))
-    caption(doc, f"📍 {cap}")
+    caption(doc, f"📍 {cap}" if stamp else cap)
 
 
 def main() -> None:
@@ -121,7 +127,8 @@ def main() -> None:
     other_figures = [f for f in c.get("figures", []) if f.get("role") != "overview"]
     if overview:
         doc.add_heading("一图流", level=1)
-        picture(doc, video_dir, overview["file"], overview["caption"])
+        picture(doc, video_dir, overview["file"], overview["caption"],
+                stamp=False)   # 一图流不是某时刻截图，不加 📍 前缀
 
     # ---------- 视频总结版本 ----------
     doc.add_heading(c["summary"]["heading"], level=1)

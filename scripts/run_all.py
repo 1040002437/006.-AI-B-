@@ -13,6 +13,9 @@
 
 没有 content.json 时会停在素材阶段——内容生成由 WorkBuddy 读字幕完成，
 这是有意设计（总结质量靠理解力，不靠模板）。
+
+一图流必须由该篇专属脚本产出（每篇结构不同、AI 自行判断版式），
+缺图时 --full 直接报错中止，不自动跑通用绘图。
 """
 import argparse
 import json
@@ -72,9 +75,11 @@ def main() -> None:
     if not a.full:
         print(f"\n素材阶段结束：{out_dir}")
         if not content.exists():
-            print("下一步：由 WorkBuddy 读字幕生成分段/摘要/选图/一图流（.tmp/full_blocks.txt、"
-                  "chapters.json、images.json）→ make_content.py → draw_onepager.py，"
-                  "然后用 --full 续跑。")
+            print("下一步：由 WorkBuddy 读字幕生成分段/摘要/选图/一图流"
+                  "（.tmp/full_blocks.txt、chapters.json、images.json）\n"
+                  "        → make_content.py → 该篇专属一图流脚本"
+                  "（参考 scripts/draw_onepager_0001.py，版式自行设计）\n"
+                  "        → 然后用 --full 续跑。")
         return
 
     if not content.exists():
@@ -84,9 +89,17 @@ def main() -> None:
     has_overview = any(f.get("role") == "overview" for f in c.get("figures", []))
     one_pager = out_dir / "figures" / "一图流.png"
     if not has_overview or not one_pager.exists():
-        run([PY, str(SCRIPTS / "draw_onepager.py"), "--dir", str(out_dir)])
-        # draw_onepager.py 会写回 content.json，重新读一次
-        c = json.loads(content.read_text(encoding="utf-8"))
+        sys.exit(
+            "缺少一图流：figures/一图流.png 未生成，或未登记到 content.json 的 "
+            "figures[0]（role=overview）。\n"
+            "F14 规范要求「每篇单独设计结构 + 专属脚本」，不再自动跑通用绘图"
+            "（其产出不满足红线 9）。请先：\n"
+            "  1) 为该视频设计阶段划分与动作盒（版式参考 scripts/draw_onepager_0001.py）\n"
+            "  2) 写 scripts/draw_onepager_<编号>.py，直读 content.json 的 "
+            "summary.chapters[]\n"
+            "  3) 脚本须启动即断言动作盒 chapters[] 并集 == range(len(chapters))，"
+            "并写回 summary.onepager 与 figures[0]"
+        )
 
     run([PY, str(SCRIPTS / "extract_frames.py"), "--dir", str(out_dir)])
     run([PY, str(SCRIPTS / "render_docx.py"), "--dir", str(out_dir)])

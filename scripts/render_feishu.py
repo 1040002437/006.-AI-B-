@@ -48,12 +48,14 @@ def build_xml(c: dict) -> str:
     x.append(f"<p><b>UP主：</b>{e(meta['up'])}　<b>时长：</b>{e(dur)}　"
              f"<b>BV号：</b>{e(meta['bvid'])}　<b>字幕来源：</b>{e(meta['subtitle_source'])}</p>")
 
-    # ---- 一图流（F14） ----
+    # ---- 一图流（F14）----
+    # caption 单一来源 = figures[0].caption（由专属绘图脚本写入），不二次加工，
+    # 保证与 docx 输出一致。一图流不是某时刻截图，不加 📍 前缀。
     overview = next((f for f in c.get("figures", []) if f.get("role") == "overview"), None)
     other_figures = [f for f in c.get("figures", []) if f.get("role") != "overview"]
     if overview:
         x.append("<h1>一图流</h1>")
-        x.append(img_tag(overview["file"], f"一图流　{overview['caption']}"))
+        x.append(img_tag(overview["file"], overview["caption"]))
 
     # ---- 总结版 ----
     x.append(f"<h1>{e(c['summary']['heading'])}</h1>")
