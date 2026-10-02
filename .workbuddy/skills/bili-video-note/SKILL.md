@@ -3,7 +3,7 @@ name: bili-video-note
 description: "把一个 B站视频变成一篇带截图和时间码的飞书云文档（同时留一份本地 docx）。自动下载 720P、抓取 B站 CC/AI 字幕、按语义分段、抽关键帧；由 WorkBuddy 在对话中完成「分段 / 摘要 / 选图」这段需要理解力的部分。产出《视频总结版本》+《视频全量文字版》两个一级标题，每个段落块带 [hh:mm:ss] 可跳回原视频。Use when: 用户给一个 bilibili.com/video/BV… 或 b23.tv 链接，并要求『阅读并生成文档』『看这个视频并出文档』『你去看这个B站视频并生成笔记』『总结这个B站视频』『转成飞书文档/笔记』『提取每分每秒的内容』；或提到『视频转文档』『B站笔记』『让 AI 看视频』。用户只要给链接 + 这类意图，就自动触发并执行全流程，不要反过来问用户要不要做。"
 description_zh: "B站视频 → 飞书云文档：带时间码的完整文字版 + 分章节总结版 + 关键画面截图"
 description_en: "Turn a Bilibili video into a Feishu cloud doc with screenshots and timestamps"
-version: "1.3.0"
+version: "1.4.0"
 display_name: "B站视频转飞书文档"
 visibility: "private"
 agent_created: true
@@ -54,22 +54,30 @@ PY="$REPO/.venv/Scripts/python.exe"
 #    脚本会打印 "素材就绪：<绝对路径>"，记住这个 data/000N.《标题》 文件夹
 "$PY" "$REPO/scripts/run_all.py" "<B站链接>"
 
-# ② 内容（这一步是你做的，没有命令可替代）：
+#② 内容（这一步是你做的，没有命令可替代）：
 #    读 subtitle.json → 写 .tmp/full_blocks.txt / chapters.json / images.json
 #    （做法见 references/content-guide.md；AI 字幕无标点，必须断句+听写纠错）
-#    组装成中间结构 content.json（ figures 里可顺带传入 F12 文中补充图）：
+#    ⚠ chapters.json 的每一章都要带 phrase（8-20 字），否则 make_content.py 会警告
+#    ⚠ .tmp/ 是仓库根公共区，多视频共用 —— 写之前先清掉上一条视频的残留
+#    组装成中间结构 content.json（figures 里可顺带传入 F12 文中补充图）：
 "$PY" "$REPO/scripts/make_content.py" --dir "data/000N.《标题》" \
     [--figure "figures/xxx.png|图说明文字"]
 #    必做：一图流 = 一张横向扁宽的「阶段流 + 动作盒」图，不是目录、不是竖版长图。
 #    先看 data/000N.《标题》/figures/ 里有没有历史产物可复用版式，别从零发明。
 #    再为当前视频设计专属结构（分几段、每段哪几个动作由你判断，不问用户），
-#    写该篇专属脚本（可复制 draw_onepager_0001.py 再改），产出 figures/一图流.png。
+#    写该篇专属脚本（复制 draw_onepager_0002.py 再改，它带像素级自动折行），产出 figures/一图流.png。
 #    版式：顶部标题+副标题 / 左侧阶段标签含时间码 / 右侧动作盒横排+横向箭头 /
 #          阶段间竖向箭头递进 / 末段可通栏；约 2000x900~1200 扁宽。
 #    动作盒= 主文字（你提炼的动作短句）+ 副文字；并记录它对应哪几章 chapters[]，
 #    启动即断言并集==range(len(chapters))，漏章或重复归入就拒绝出图。
 #    盒宽按可用宽度自适应、标签宽按像素自适应（不溢出不裁切）；--preview 出 1000px 缩略图自检。
-"$PY" "$REPO/scripts/draw_onepager_0001.py" --dir "data/000N.《标题》"   # 版式参考样例；后续视频另写专属脚本
+"$PY" "$REPO/scripts/draw_onepager_0001.py" --dir "data/000N.《标题》"   # 建设类视频（4阶段）的版式样例
+"$PY" "$REPO/scripts/draw_onepager_0002.py" --dir "data/000N.《标题》"   # 评测类视频（6阶段）的版式样例
+"$PY" "$REPO/scripts/draw_onepager_0003.py" --dir "data/000N.《标题》"   # 概念科普类视频（5阶段单线递进）的版式样例
+#    专属脚本命名沿用 draw_onepager_<三位编号>.py。0002 版已加按像素自动折行（wrap），
+#    主副文字都不会溢出盒宽，长句可放心写——**新写脚本直接复制 0002 那份**
+#    ⚠ 单节点阶段的盒高偏小时，5 行副文字会溢出盒底（0003 踩过）→ 要么压缩到 4 行，
+#      要么把 box_layout() 里 {1: 150} 改成 190
 #    可选：再画 F12 文中补充图（参考 draw_onepager_0001.py 的 PIL 画法），需再跑 make_content.py 把它追加进 figures
 
 # ③ 渲染（确定性）：抽帧 → 本地 docx → 飞书云文档 → 链接写回 视频信息.md
@@ -88,9 +96,17 @@ PY="$REPO/.venv/Scripts/python.exe"
 [ ] ls "$REPO/.secrets/feishu_folder.txt"  # 飞书目标文件夹 token
 [ ] "$PY" -c "import yt_dlp, PIL, docx, requests; print('依赖 OK')"
 [ ] ls ~/.workbuddy/binaries/node/cli-connector-packages/node_modules/@larksuite/cli/scripts/run.js
+[ ] ls "$REPO/.venv/Lib/site-packages/imageio_ffmpeg/binaries/ffmpeg.exe"  # 见下方 ffmpeg 坑
 ```
 
 四项任一缺失就先去 `references/env-setup.md` 补齐，**不要硬跑**。
+
+**ffmpeg 不在 PATH**（Windows 常见）：venv 里 `imageio_ffmpeg` 自带了二进制，`prepare.py` 与 `extract_frames.py` 用 `imageio_ffmpeg.get_ffmpeg_exe()` 直调不受影响，但 **`download_video.py` 合并音视频流走的是 yt-dlp 自己的 PATH 查找**，找不到就报 `You have requested merging of multiple formats but ffmpeg is not installed`。修法：把 `ffmpeg-win-x86_64-v7.1.exe` 复制一份成 `ffmpeg.exe`，然后**在所有调 `run_all.py` 的命令前临时注入 PATH**：
+
+```bash
+FFDIR="$REPO/.venv/Lib/site-packages/imageio_ffmpeg/binaries"
+PATH="$FFDIR:$PATH" "$PY" "$REPO/scripts/run_all.py" "..."
+```
 
 ## 产物规范（硬约束）
 
@@ -119,6 +135,13 @@ PY="$REPO/.venv/Scripts/python.exe"
 - **lark-cli 是 Windows 的 `.cmd`**，Python `subprocess` 调不了（WinError 2），必须 `node.exe + run.js` 直调（render_feishu.py 已封装好）
 - 下载优先 `avc1`，避开 AV1——AV1 抽帧极慢
 - 抽帧时 `-ss` 必须放在 `-i` 前面
+- **ffmpeg 抽出的 JPEG 不能直接喂给 python-docx**：ffmpeg 写的文件头带 `avc1` 私有 APP1 标记（`ff d8 ff e0 ... avc1`）而非标准 Exif，PIL 能读但 `add_picture` 的嗅探器认不出，报 `UnrecognizedImageError`。已在 `extract_frames.py` 里加 `normalize()` 用 PIL 重存一遍解决；若换机器后旧帧报错，重跑 `extract_frames.py --force` 即可。**下游三个脚本（抽帧/渲染 docx/渲染飞书）都走 PATH 里的 ffmpeg，缺 ffmpeg 时三个都会失败**
+- **`make_content.py` 会重建 `figures/`**，抽帧也在其后——所以别在 `make_content.py` 之前手工往 `frames/` 放图
+- **`.tmp/` 是仓库根的公共临时区，不是 per-video**：不同视频的 `full_blocks.txt` / `chapters.json` / `images.json` 会互相覆盖。处理下一条视频前先清空（或确保本次写入时机正确）
+- **`phrase` 字段必填**：8–20 字的汉字长度校验，斜杠和空格都算字符，超了就退回重写。缺这个字段 `make_content.py` 会警告，一图流节点无从生成
+- **AI 字幕的 PPT 切页比口播晚**（0003 踩过）：按口播时间点抽帧会抽到上一页的重复画面。**PPT 教学类视频必须先抽 1 帧/10~20 秒拼成缩略图核对**，发现重复就把时间点往后挪几秒再抽
+- **`render_docx.py` 报 `PermissionError` = docx 被占用**：上一次生成的文件还开着（Word / 预览面板 / 资源管理器缩略图）。关掉后重跑 `--full` 即可，**已生成的帧不用重抽**（extract_frames 会跳过已存在的文件）
+- **反复重渲染会踩瞬时文件锁**：Windows 上 antivirus / 索引服务可能短暂占用 docx。遇到就等几秒重跑一次，别改脚本
 
 ## 换台电脑怎么办
 
