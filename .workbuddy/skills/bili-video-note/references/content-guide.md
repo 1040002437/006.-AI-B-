@@ -69,10 +69,14 @@ caption 写画面里那个**信息点**（"豆包的 Skills 创建界面"），�
 
 在《视频总结版本》**之前**单开一级标题「一图流」，节内只放一张「视频脉络图」，不配说明文字（文字都画在图里）。这是导航索引图，让人先看清全片结构、再按图跳正文。
 
-- 图上节点 = `chapters[]` 的每个章节：节点标题直接用 `chapters[i].title`、时间码用 `time_range`，**逐字 1:1 对齐**（红线 9 的机制保障，别手画节点名）
-- 节点数 5 / 12 两种规模都要能自动排版（纵向时间轴，自动算高）；沿用 `draw_figure_0001.py` 的 PIL + `msyh.ttc` 路线
-- **脚本已实现**：`scripts/draw_onepager.py`（S23 DONE），入参 `content.json`，直读 `chapters[]` 自动出 `figures/一图流.png`，并自动把 `{file:"figures/一图流.png", role:"overview"}` 写回 `content.json` 的 `figures[0]`
-- 调用顺序：先 `make_content.py` 组装 content.json，再 `draw_onepager.py` 生成一图流并写回 content.json，最后 `--full` 渲染。`run_all.py --full` 会在渲染前自动补跑 `draw_onepager.py`（如果缺失）
+**核心原则：每支视频的一图流都是「单独设计」的思维导图，不是固定模板。** 不同视频的结构、分支数量、节点层级都可以不同——有的适合中心放射，有的适合左右分层，有的适合鱼骨或金字塔。你在对话阶段根据视频内容设计专属结构，然后用 PIL 直接画成 PNG。
+
+- 图上节点**不必**与 `chapters[]` 机械 1:1；但要能准确概括全片脉络，一眼能导航正文
+- 设计时可参考 `chapters[]` 的标题与时间区间，但允许合并、重命名、提炼动作短语
+- 推荐元素：中心主题、彩色主分支、圆角节点、曲线连接；标题用 `视频脉络：…（时长）`
+- **0001 参考实现**：`scripts/draw_mindmap_0001.py`，中心主题「豆包自动化工作流」放射出 4 条彩色分支（搭库 → 喂料立规 → 自动化 → 产出）。后续视频应写新的专属脚本或直接用 Python 代码绘制
+- 画完必须生成缩略图自检（常见问题：文字被挤出去、节点重叠、曲线难看），再把 `{file:"figures/一图流.png", role:"overview"}` 写回 `content.json` 的 `figures[0]`
+- 调用顺序：先 `make_content.py` 组装 content.json → 设计并画出专属一图流 → `--full` 渲染
 
 ## 文中补充图 / 自绘图（F12，可选 0–1 张）
 

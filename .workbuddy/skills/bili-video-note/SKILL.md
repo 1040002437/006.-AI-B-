@@ -3,7 +3,7 @@ name: bili-video-note
 description: "把一个 B站视频变成一篇带截图和时间码的飞书云文档（同时留一份本地 docx）。自动下载 720P、抓取 B站 CC/AI 字幕、按语义分段、抽关键帧；由 WorkBuddy 在对话中完成「分段 / 摘要 / 选图」这段需要理解力的部分。产出《视频总结版本》+《视频全量文字版》两个一级标题，每个段落块带 [hh:mm:ss] 可跳回原视频。Use when: 用户给一个 bilibili.com/video/BV… 或 b23.tv 链接，并要求『阅读并生成文档』『看这个视频并出文档』『你去看这个B站视频并生成笔记』『总结这个B站视频』『转成飞书文档/笔记』『提取每分每秒的内容』；或提到『视频转文档』『B站笔记』『让 AI 看视频』。用户只要给链接 + 这类意图，就自动触发并执行全流程，不要反过来问用户要不要做。"
 description_zh: "B站视频 → 飞书云文档：带时间码的完整文字版 + 分章节总结版 + 关键画面截图"
 description_en: "Turn a Bilibili video into a Feishu cloud doc with screenshots and timestamps"
-version: "1.2.2"
+version: "1.2.3"
 display_name: "B站视频转飞书文档"
 visibility: "private"
 agent_created: true
@@ -60,8 +60,11 @@ PY="$REPO/.venv/Scripts/python.exe"
 #    组装成中间结构 content.json（ figures 里可顺带传入 F12 文中补充图）：
 "$PY" "$REPO/scripts/make_content.py" --dir "data/000N.《标题》" \
     [--figure "figures/xxx.png|图说明文字"]
-#    必做：生成 一图流.png 并写回 content.json（role=overview）：
-"$PY" "$REPO/scripts/draw_onepager.py" --dir "data/000N.《标题》"
+#    必做：一图流是「为每支视频单独设计的思维导图」，不是固定模板。
+#    在对话里为当前视频设计专属结构，然后用 PIL 直接画成 figures/一图流.png，
+#    并把 {file:"figures/一图流.png", role:"overview"} 写回 content.json 的 figures[0]。
+#    参考实现：scripts/draw_mindmap_0001.py（0001 专属）。
+"$PY" "$REPO/scripts/draw_mindmap_0001.py" --dir "data/000N.《标题》"   # 0001 示例；后续视频写新的专属脚本
 #    可选：再画 F12 文中补充图（draw_figure_0001.py 模板），需再跑 make_content.py 把它追加进 figures
 
 # ③ 渲染（确定性）：抽帧 → 本地 docx → 飞书云文档 → 链接写回 视频信息.md
@@ -87,7 +90,7 @@ PY="$REPO/.venv/Scripts/python.exe"
 ## 产物规范（硬约束）
 
 - **命名**：`data/0001.《视频标题》/`，编号四位递增，由扫 `data/` 最大编号 +1 得出
-- **三个一级标题，顺序固定**：《一图流》（最前）→《视频总结版本》→《视频全量文字版》；《一图流》必须是「一级标题『一图流』+ 一张脉络图」，节内无文字（F14，每篇必做，节点与总结版章节 1:1 对齐）
+- **三个一级标题，顺序固定**：《一图流》（最前）→《视频总结版本》→《视频全量文字版》；《一图流》必须是「一级标题『一图流』+ 一张专属脉络图」，节内无文字（F14，每篇必做；图由我根据视频内容单独设计成思维导图风格，不套固定模板）
 - **开头第一行**必须是可点击的原视频链接
 - **每张图**的 caption 必须以 `📍 hh:mm:ss` 开头
 - 云文档固定落在飞书「009.AI生成文档」文件夹，链接成功后写回 `视频信息.md`；**同一视频重跑会整篇覆盖更新同一篇（首次 `+create` 新建，之后 `+update --command overwrite`），不会生成多篇同名文档**；飞书自带版本历史可回滚
@@ -99,7 +102,7 @@ PY="$REPO/.venv/Scripts/python.exe"
 3. 总结每章必须有 `hh:mm:ss - hh:mm:ss` 时间区间
 4. 每张图必须有时间码标注
 5. 截图只取「文字给不出信息」的画面（界面、代码、图表），不均匀分布；口播头像帧不算
-6. **一图流（F14）每篇必做**：文档最前必须有 H1「一图流」+ 一张脉络图，图上节点**必须与总结版章节 1:1**（标题、时间码逐字一致，由脚本直读 `content.json` 保证）；缺图或节点对不上 → 判不合格，不许静默出图（红线 9）
+6. **一图流（F14）每篇必做**：文档最前必须有 H1「一图流」+ 一张脉络图；这张图是**为该视频单独设计的思维导图**（中心主题 + 彩色分支 + 关键节点），不是我写死的模板；图上节点与总结版章节不必机械 1:1，但视频核心结构必须准确、一眼能导航全文
 7. F12 自绘图（文中补充图）**可选 0–1 张**，必须有信息增量、宁缺毋滥；全片脉络已移交 F14，这里不重复画总脉络
 8. docx 必须用真 Heading 样式 + 图片内嵌，不能是一堆加粗段落
 9. 飞书写入失败必须明确报错；执行顺序保证 docx 先落地，飞书挂了用户手里也已有成品
