@@ -125,3 +125,32 @@
 - F10 渲染器实现：把中间内容结构渲染成飞书 XML（`<title>/<h1>/<h2>/<p>/<img>`）并调用 `lark-cli docs +create` / `+media-insert`
 - 先把 M1 的本地链路跑通：读字幕 → 分段总结 → 选截图点 → 抽帧 → 出 docx（用已抓好的豆包视频 833 段字幕）
 - 旧文件归档方案仍待用户定
+
+---
+
+## Session 6（2026-10-02）· 全流程完工，首篇端到端交付
+
+**做了什么（S05–S21 全部完成）**
+
+- P1 素材链路脚本化：`init_video.py`（解析/编号/建目录/写信息，含重复 BV 识别与多 P 提示）、`download_video.py`（720P 优先 avc1 避 AV1）、`prepare.py`（一条命令 F1–F4，字幕统计回写 `视频信息.md`）
+- P2 内容生成（0001 首篇）：833 段 AI 字幕**无标点** → 全文断句+听写纠错（飞书/豆包/Seedance/AGENTS.md 等错词修正）→ 42 个 60 秒段落块 + 12 章总结 + 12 张截图选点（逐张看图核对，8 模块可视化帧从 06:12 修正到 06:25）+ 1 张 PIL 自绘「视频脉络」图
+- P3/P4 渲染：`render_docx.py`（真 Heading×14、图内嵌×13、eastasia 字体、可点原链接）、`render_feishu.py`（**关键突破：DocxXML `<img path="@./xx.jpg" caption="…"/>` 建文档时内联上传本地图**，绕开 media-insert 只能追加末尾的限制）、链接写回 `视频信息.md`
+- P5：`run_all.py` 一键串联（素材一条命令；内容阶段有意停在对话；`--full` 渲染一条命令）、`docs/测试文档.md` 8 条红线验收
+
+**成果物**
+
+- 飞书云文档：https://my.feishu.cn/docx/Zh3XdGcOjoXHoyxkmh0c8oD6nzb（13 图带 📍 时间码、42 块时间戳、开头原链接）
+- 本地 docx：`data/0001.《…》/0001.《…》.docx`（结构与云文档同源）
+
+**踩坑（新）**
+
+1. `media-insert` 只能追加到文档**末尾**，无法穿插图文 → 用 `+create` 的 XML `<img path="@./x.jpg">` 一次成型
+2. python-docx 的 `_NumberingStyle` 没有 `.font` 属性，遍历样式要 `getattr(s, "font", None)` + try/except
+3. AI 字幕（ai-zh）**完全没有标点**，全量文字版必须人工断句纠错——这是每篇的固定工作量，已计入口径
+4. Pillow 画图中文用 `C:/Windows/Fonts/msyh.ttc`，可正常嵌入 docx/飞书
+
+**下次从哪继续**
+
+- 日常使用：新链接 → `run_all.py "<链接>"` → 对话生成分段/选图 → `run_all.py --dir … --full`
+- 遗留验证：第一个无字幕视频实测红线 1 的报错路径
+- 可选：把「分段方案确认」环节加回来（当前经授权跳过用户确认）
