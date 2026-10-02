@@ -6,3 +6,4 @@ yt-dlp            # 下载 B站视频
 imageio-ffmpeg    # 自带预编译 ffmpeg 二进制：合并音视频轨 + 精确抽帧
 requests          # 调 B站接口抓字幕
 python-docx       # 渲染本地 docx 副本（真标题样式 + 图片内嵌）
+pillow            # 自绘结构图（配图/脉络图），中文字体取系统微软雅黑
