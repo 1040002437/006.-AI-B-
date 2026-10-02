@@ -11,9 +11,15 @@
     figures  自绘结构图（总结版开头）
     images   截图清单（时间码 + caption + 文件名），同一份文件全量版与总结版复用
     summary  章节列表：起止秒 / 概述 / 要点 / 归属到本章的截图
+             另可含 phrase（一图流节点描述，8–20 字）与 onepager（一图流结构留痕，
+             由该篇专属绘图脚本写回，不在本脚本生成）
     full     段落块列表：起始秒 / 正文 / 归属到本块的截图
 
 截图归属由脚本按时间区间自动分配，不手写。
+
+一图流节点描述 phrase 由对话阶段直接写进 chapters.json，本脚本整章透传，
+不新增命令行参数（短语塞命令行不可读，且会让 .tmp 与content.json 两个真相源分叉）。
+本脚本只对phrase 缺失 / 超长做**非阻断告警**。
 """
 import argparse
 import json
@@ -124,6 +130,20 @@ def main() -> None:
 
     unplaced = [im["id"] for im in images
                 if not any(im in ch["images"] for ch in chapters)]
+
+    # 一图流节点描述（非阻断告警）：phrase 由对话阶段产出，缺失或超长只提醒不中止
+    PHRASE_MIN, PHRASE_MAX = 8, 20
+    phrase_bad = []
+    for i, ch in enumerate(chapters, 1):
+        ph = str(ch.get("phrase") or "").strip()
+        if not ph:
+            phrase_bad.append(f"第{i}章 缺失")
+        elif not (PHRASE_MIN <= len(ph) <= PHRASE_MAX):
+            phrase_bad.append(f"第{i}章 {len(ph)}字")
+    if phrase_bad:
+        print(f"⚠ phrase（一图流节点描述，{PHRASE_MIN}–{PHRASE_MAX} 字）不合规："
+              f"{'、'.join(phrase_bad)}")
+
     print(f"章节　: {len(chapters)} 个")
     print(f"段落块: {len(blocks)} 个")
     print(f"截图　: {len(images)} 张" + (f"（未落入任何章节：{unplaced}）" if unplaced else ""))
