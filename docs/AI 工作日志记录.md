@@ -93,3 +93,35 @@
 
 - 用户点头后实现 F1–F3：`scripts/add_video.py` 一条命令完成「解析 → 建 0001 目录 → 下载 720P → 抓字幕 → 写视频信息.md」
 - 旧文件归档方案待用户定
+
+---
+
+## 2026-10-02 · Session 5 · 飞书写入打通（从"手动建应用"到实测成功）
+
+**做了什么**
+
+- 讨论技术栈细节并拍板：段落块时间戳（约 60s/块）、总结版与全量版都配图、CC 字幕优先、长视频自动分块
+- 定稿输出架构：**中间内容结构 + 双渲染**（飞书云文档为主 + 本地 docx 兜底），取消 `笔记.md`
+- 新增 F13 自绘结构图（`figures/`，思维导图/流程图/对比表/时间轴，实用导向）
+- 排查 WorkBuddy 飞书连接器"点了转圈"：日志显示连接调用 27ms 空转，连接器未安装（`enabled: []`）
+- 安装市场套件 `lark-unified`（飞书/Lark 全能套件），拿到官方 `lark-cli` v1.0.97
+- 完成设备码授权 + 用户身份 OAuth，成功创建云文档并插入带时间码的图片
+
+**关键结论**
+
+- 飞书写入**走用户身份（user）而非 bot**：文档直接落在个人云空间，省掉"应用建文档再授权给个人"那一步。bot 身份会报 `app_scope_not_applied`（99991672）
+- 实测验证文档：https://my.feishu.cn/docx/ScJydJ36TozW60xBBRzc9ExKnef （H1/H2 层级、正文、图片 + `📍 00:05:00` caption 全部正常）
+- 用户账号：张秩伟；应用 App ID：`cli_aa358d94c978dbc1`
+
+**踩坑（重要，别重踩）**
+
+1. **WinError 2**：`lark-cli` 在 Windows 是 `.cmd`，Python `subprocess` 无法执行。修法：用 `node.exe` + `node_modules/@larksuite/cli/scripts/run.js` 调用。**已修进 skill**（`~/.workbuddy/skills/lark-unified/scripts/lark_setup.py` 新增 `lark_cli_base_cmd()`）
+2. **授权必须同流程轮询**：只 `--print-url-only` 拿 URL 而不发起 `--device-code` 轮询，用户点了也拿不到凭证（浪费了两次授权）
+3. **`--file` / `--content @file` 只认 cwd 相对路径**，绝对路径被拒
+4. WorkBuddy 市场里的"飞书连接器"卡片在未安装时点「连接」会空转转圈，不是用户操作问题
+
+**下次从哪继续**
+
+- F10 渲染器实现：把中间内容结构渲染成飞书 XML（`<title>/<h1>/<h2>/<p>/<img>`）并调用 `lark-cli docs +create` / `+media-insert`
+- 先把 M1 的本地链路跑通：读字幕 → 分段总结 → 选截图点 → 抽帧 → 出 docx（用已抓好的豆包视频 833 段字幕）
+- 旧文件归档方案仍待用户定
